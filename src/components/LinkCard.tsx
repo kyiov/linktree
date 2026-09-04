@@ -33,18 +33,42 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index = 0 }) => {
       const mainPart = title.slice(0, splitIndex);
       const extPart = title.slice(splitIndex);
       return (
-        <span className="inline-flex items-baseline justify-center gap-0.5">
-          <span className="font-semibold text-white tracking-normal text-[15px] sm:text-[16px]">
-            {mainPart}
+        <span className="inline-flex items-baseline justify-center">
+          <span className="font-semibold text-white tracking-normal text-[15px] sm:text-[16px] inline-flex">
+            {mainPart.split('').map((char, cIdx) => (
+              <span
+                key={cIdx}
+                style={{
+                  transitionDelay: `${cIdx * 18}ms`,
+                }}
+                className="inline-block transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:text-amber-100 will-change-transform"
+              >
+                {char === ' ' ? '\u00A0' : char}
+              </span>
+            ))}
           </span>
-          <span className="font-mono text-white/50 text-[13px] sm:text-[14px] tracking-tight">
+          <span className="font-mono text-white/50 text-[13px] sm:text-[14px] tracking-tight ml-0.5 transition-colors duration-200 group-hover:text-white/70">
             {extPart}
           </span>
         </span>
       );
     }
 
-    return <span className="font-semibold text-white tracking-normal text-[15px] sm:text-[16px]">{title}</span>;
+    return (
+      <span className="font-semibold text-white tracking-normal text-[15px] sm:text-[16px] inline-flex">
+        {title.split('').map((char, cIdx) => (
+          <span
+            key={cIdx}
+            style={{
+              transitionDelay: `${cIdx * 18}ms`,
+            }}
+            className="inline-block transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:text-amber-100 will-change-transform"
+          >
+            {char === ' ' ? '\u00A0' : char}
+          </span>
+        ))}
+      </span>
+    );
   };
 
   const delayMs = 280 + index * 80;
@@ -70,7 +94,7 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index = 0 }) => {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={link.title}
-        onClick={() => playTactileClick()}
+        onClick={() => playTactileClick(index)}
         className="linktree-pill relative w-full min-h-[64px] sm:min-h-[70px] py-3.5 px-6 sm:px-12 flex items-center justify-center text-center font-dmsans border border-white/10 hover:border-white/20 cursor-pointer select-none"
       >
         {/* Subtle keyboard shortcut indicator on desktop */}
@@ -80,13 +104,13 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index = 0 }) => {
           </span>
         )}
 
-        {/* Integrated Typography (Title + Inline Subtitle) */}
+        {/* Integrated Typography with Kinetic Micro-Stagger */}
         <div className="flex flex-col items-center justify-center w-full px-2">
           <div className="flex items-center justify-center">
             {renderDualToneTitle(link.title)}
           </div>
           {link.description && (
-            <p className="text-[12px] sm:text-[13px] text-white/60 font-normal leading-snug line-clamp-1 mt-0.5 max-w-[90%]">
+            <p className="text-[12px] sm:text-[13px] text-white/60 font-normal leading-snug line-clamp-1 mt-0.5 max-w-[90%] transition-colors duration-200 group-hover:text-white/80">
               {link.description}
             </p>
           )}

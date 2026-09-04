@@ -23,7 +23,7 @@ const App: React.FC = () => {
         if (idx < config.links.length) {
           const targetLink = config.links[idx];
           if (targetLink) {
-            playTactileClick();
+            playTactileClick(idx);
             window.open(targetLink.url, '_blank');
           }
         }
