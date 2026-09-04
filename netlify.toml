@@ -1,6 +1,17 @@
 [build]
   publish = "dist"
   command = "npm run build"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/music/search"
+  to = "/.netlify/functions/music-search"
+  status = 200
+
+[[redirects]]
+  from = "/api/music/play"
+  to = "/.netlify/functions/music-play"
+  status = 200
 
 [[redirects]]
   from = "/*"
