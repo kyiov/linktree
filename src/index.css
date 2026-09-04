@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Salsa BT';
+  src: url('/fonts/SalsaBT.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-salsa {
+  font-family: 'Salsa BT', 'Salsa', cursive, sans-serif;
+}
+
+.font-display {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+:root {
+  --color-bg: #2b0e18;
+  --color-pill: #6f4c56;
+  --color-pill-hover: #7b5460;
+  --color-text: #ffffff;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.hero-avatar-mask {
+  mask: radial-gradient(110.26% 96% at 50% 0%, #000 50%, rgba(0, 0, 0, 0.99) 54.68%, rgba(0, 0, 0, 0.97) 58.79%, rgba(0, 0, 0, 0.94) 62.4%, rgba(0, 0, 0, 0.90) 65.61%, rgba(0, 0, 0, 0.85) 68.52%, rgba(0, 0, 0, 0.79) 71.2%, rgba(0, 0, 0, 0.72) 73.75%, rgba(0, 0, 0, 0.65) 76.25%, rgba(0, 0, 0, 0.57) 78.8%, rgba(0, 0, 0, 0.48) 81.48%, rgba(0, 0, 0, 0.39) 84.39%, rgba(0, 0, 0, 0.30) 87.6%, rgba(0, 0, 0, 0.20) 91.21%, rgba(0, 0, 0, 0.10) 95.32%, rgba(0, 0, 0, 0.00) 100%);
+  -webkit-mask: radial-gradient(110.26% 96% at 50% 0%, #000 50%, rgba(0, 0, 0, 0.99) 54.68%, rgba(0, 0, 0, 0.97) 58.79%, rgba(0, 0, 0, 0.94) 62.4%, rgba(0, 0, 0, 0.90) 65.61%, rgba(0, 0, 0, 0.85) 68.52%, rgba(0, 0, 0, 0.79) 71.2%, rgba(0, 0, 0, 0.72) 73.75%, rgba(0, 0, 0, 0.65) 76.25%, rgba(0, 0, 0, 0.57) 78.8%, rgba(0, 0, 0, 0.48) 81.48%, rgba(0, 0, 0, 0.39) 84.39%, rgba(0, 0, 0, 0.30) 87.6%, rgba(0, 0, 0, 0.20) 91.21%, rgba(0, 0, 0, 0.10) 95.32%, rgba(0, 0, 0, 0.00) 100%);
+}
+
+.hero-avatar-blur-mask {
+  mask: radial-gradient(110.26% 96% at 50% 0%, rgba(0, 0, 0, 0.00) 60%, rgba(0, 0, 0, 0.01) 64.72%, rgba(0, 0, 0, 0.03) 68.55%, rgba(0, 0, 0, 0.07) 71.65%, rgba(0, 0, 0, 0.12) 74.13%, rgba(0, 0, 0, 0.18) 76.15%, rgba(0, 0, 0, 0.25) 77.82%, rgba(0, 0, 0, 0.33) 79.3%, rgba(0, 0, 0, 0.41) 80.7%, rgba(0, 0, 0, 0.50) 82.18%, rgba(0, 0, 0, 0.59) 83.85%, rgba(0, 0, 0, 0.67) 85.87%, rgba(0, 0, 0, 0.76) 88.35%, rgba(0, 0, 0, 0.85) 91.45%, rgba(0, 0, 0, 0.93) 95.28%, #000 100%);
+  -webkit-mask: radial-gradient(110.26% 96% at 50% 0%, rgba(0, 0, 0, 0.00) 60%, rgba(0, 0, 0, 0.01) 64.72%, rgba(0, 0, 0, 0.03) 68.55%, rgba(0, 0, 0, 0.07) 71.65%, rgba(0, 0, 0, 0.12) 74.13%, rgba(0, 0, 0, 0.18) 76.15%, rgba(0, 0, 0, 0.25) 77.82%, rgba(0, 0, 0, 0.33) 79.3%, rgba(0, 0, 0, 0.41) 80.7%, rgba(0, 0, 0, 0.50) 82.18%, rgba(0, 0, 0, 0.59) 83.85%, rgba(0, 0, 0, 0.67) 85.87%, rgba(0, 0, 0, 0.76) 88.35%, rgba(0, 0, 0, 0.85) 91.45%, rgba(0, 0, 0, 0.93) 95.28%, #000 100%);
+}
+
+.linktree-pill {
+  background-color: var(--color-pill);
+  color: var(--color-text);
+  border-radius: 9999px;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.4, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+  will-change: transform;
+}
+
+.linktree-pill:hover {
+  background-color: var(--color-pill-hover);
+  transform: scale(1.015);
+  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.3);
+}
+
+.linktree-pill:active {
+  transform: scale(0.985);
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.25);
+}
+
+.linktree-pill:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 3px;
+}
+
+@keyframes heroEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeUpItem {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hero-entrance {
+  animation: heroEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-up {
+  opacity: 0;
+  animation: fadeUpItem 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toastSlide {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.animate-toast {
+  animation: toastSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes soundwave {
+  0%, 100% {
+    height: 3px;
+  }
+  50% {
+    height: 13px;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}

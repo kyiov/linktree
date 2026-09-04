@@ -1,0 +1,66 @@
+{
+  "profile": {
+    "name": "Muhar",
+    "handle": "@muhar_fg",
+    "title": "Developer & Creator",
+    "bio": "",
+    "avatarUrl": "https://raw.githubusercontent.com/kyiov/cdn/main/uploads/mtmumwdb.jpg",
+    "avatarLocalFallback": "/avatar.jpg"
+  },
+  "music": {
+    "enabled": true,
+    "defaultTrack": null,
+    "volume": 0.65,
+    "loop": true
+  },
+  "features": {
+    "filmGrain": true,
+    "sunsetVignette": true,
+    "soundEffects": true,
+    "keyboardShortcuts": true
+  },
+  "socials": [
+    {
+      "platform": "instagram",
+      "url": "https://www.instagram.com/muh4r_fgh",
+      "label": "Instagram"
+    },
+    {
+      "platform": "github",
+      "url": "https://github.com/kyiov",
+      "label": "GitHub"
+    },
+    {
+      "platform": "telegram",
+      "url": "https://t.me/Muh4r",
+      "label": "Telegram"
+    }
+  ],
+  "links": [
+    {
+      "id": "link-1",
+      "title": "muh4r.my.id",
+      "description": "Personal website & developer showcase",
+      "url": "https://muh4r.my.id",
+      "icon": "globe",
+      "badge": "Personal",
+      "highlight": true
+    },
+    {
+      "id": "link-2",
+      "title": "app.gistify.web.id",
+      "description": "Gistify Web App Platform",
+      "url": "https://app.gistify.web.id/",
+      "icon": "zap",
+      "badge": "App"
+    },
+    {
+      "id": "link-3",
+      "title": "api.kyio.web.id",
+      "description": "Public Developer API & Endpoints",
+      "url": "https://api.kyio.web.id/",
+      "icon": "database",
+      "badge": "API"
+    }
+  ]
+}
