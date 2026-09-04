@@ -9,7 +9,14 @@
   },
   "music": {
     "enabled": true,
-    "defaultTrack": null,
+    "defaultTrack": {
+      "id": "snowfall",
+      "title": "snowfall",
+      "artist": "Øneheart & reidenshi",
+      "duration": 125,
+      "audioUrl": "/audio/snowfall.mp3",
+      "thumbnail": "https://i.ytimg.com/vi/U1m46getoEw/hq720.jpg"
+    },
     "volume": 0.65,
     "loop": true
   },

@@ -31,6 +31,15 @@ export function clearTrackFromLocalStorage(): void {
 
 export const EVALUATED_THEME_TRACKS: Track[] = [
   {
+    id: 'snowfall',
+    title: 'snowfall',
+    artist: 'Øneheart & reidenshi',
+    duration: 125,
+    audioUrl: '/audio/snowfall.mp3',
+    thumbnail: 'https://i.ytimg.com/vi/U1m46getoEw/hq720.jpg',
+    description: 'Lagu tema utama snowfall • Atmospheric ambient',
+  },
+  {
     id: 'theme-sunset-ae86',
     title: 'Twilight Sunset Drive',
     artist: 'Initial D • AE86 Sunset Chill',

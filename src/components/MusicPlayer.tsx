@@ -124,7 +124,18 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
     }
     setIsPlaying(false);
     onTogglePlay?.(false);
-    setCurrentTrack(null);
+    if (config.defaultTrack) {
+      setCurrentTrack({
+        id: config.defaultTrack.id,
+        title: config.defaultTrack.title,
+        artist: config.defaultTrack.artist,
+        duration: config.defaultTrack.duration,
+        audioUrl: config.defaultTrack.audioUrl,
+        thumbnail: config.defaultTrack.thumbnail || '',
+      });
+    } else {
+      setCurrentTrack(null);
+    }
   };
 
   return (
