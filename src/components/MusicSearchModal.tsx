@@ -13,7 +13,7 @@ export interface Track {
   duration?: number;
   thumbnail?: string;
   audioUrl?: string;
-  source?: 'preset' | 'search';
+  source?: 'preset' | 'search' | 'custom';
   description?: string;
 }
 
@@ -41,11 +41,16 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
   currentTrack,
   isPlaying,
 }) => {
+  const [activeTab, setActiveTab] = useState<'search' | 'presets' | 'custom'>('search');
   const [query, setQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [loadingTrackId, setLoadingTrackId] = useState<string | null>(null);
+
+  const [customUrl, setCustomUrl] = useState('');
+  const [customTitle, setCustomTitle] = useState('');
+  const [customArtist, setCustomArtist] = useState('');
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -53,7 +58,7 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
     if (isOpen) {
       setTimeout(() => searchInputRef.current?.focus(), 60);
     }
-  }, [isOpen]);
+  }, [isOpen, activeTab]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -75,53 +80,19 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
     setSearchError(null);
 
     try {
-      let items: Track[] = [];
+      const res = await fetch(`/api/music/search?q=${encodeURIComponent(trimmed)}`);
+      if (!res.ok) throw new Error('Layanan pencarian tidak merespons');
 
-      try {
-        const itunesRes = await fetch(
-          `https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&entity=song&limit=15`
-        );
-        if (itunesRes.ok) {
-          const itunesData = await itunesRes.json();
-          if (Array.isArray(itunesData.results) && itunesData.results.length > 0) {
-            items = itunesData.results
-              .filter((r: any) => r.previewUrl)
-              .map((r: any) => ({
-                id: `itunes-${r.trackId}`,
-                title: r.trackName,
-                artist: r.artistName,
-                duration: r.trackTimeMillis ? Math.round(r.trackTimeMillis / 1000) : 30,
-                thumbnail: r.artworkUrl100 ? r.artworkUrl100.replace('100x100bb.jpg', '300x300bb.jpg') : '',
-                audioUrl: r.previewUrl,
-                source: 'search' as const,
-              }));
-          }
-        }
-      } catch {}
-
-      if (items.length === 0) {
-        try {
-          const res = await fetch(`/api/music/search?q=${encodeURIComponent(trimmed)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success && Array.isArray(data.results)) {
-              items = data.results.map((r: any) => ({
-                ...r,
-                source: 'search' as const,
-              }));
-            }
-          }
-        } catch {}
-      }
-
-      if (items.length > 0) {
-        setSearchResults(items);
-      } else {
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.results) || data.results.length === 0) {
         setSearchResults([]);
-        setSearchError('Lagu tidak ditemukan. Coba kata kunci yang lain.');
+        setSearchError('Lagu tidak ditemukan. Coba judul lain atau gunakan tab URL/Preset.');
+        return;
       }
+
+      setSearchResults(data.results);
     } catch {
-      setSearchError('Gagal memuat hasil pencarian. Coba lagi beberapa saat.');
+      setSearchError('Gagal memuat hasil pencarian. Periksa koneksi Anda.');
     } finally {
       setSearchLoading(false);
     }
@@ -149,24 +120,16 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
         return;
       }
 
-      let data: any = null;
-      try {
-        const res = await fetch(`/api/music/play?id=${encodeURIComponent(track.id)}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.downloadUrl) {
-            data = json;
-          }
-        }
-      } catch {}
+      const res = await fetch(`/api/music/play?id=${encodeURIComponent(track.id)}`);
+      if (!res.ok) throw new Error('Audio belum dapat dimuat saat ini');
 
-      if (!data || !data.downloadUrl) {
-        throw new Error('Audio belum dapat diputar saat ini.');
-      }
+      const data = await res.json();
+      if (!data || !data.downloadUrl) throw new Error('Audio tidak dapat diakses');
 
       const resolvedTrack: Track = {
         ...track,
         audioUrl: data.downloadUrl,
+        duration: data.duration || track.duration,
         source: 'search',
       };
 
@@ -179,6 +142,27 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
     } finally {
       setLoadingTrackId(null);
     }
+  };
+
+  const handleCustomSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const url = customUrl.trim();
+    if (!url) return;
+
+    playTactileClick();
+    const newTrack: Track = {
+      id: `custom-${Date.now()}`,
+      title: customTitle.trim() || 'Custom Audio',
+      artist: customArtist.trim() || 'Audio URL',
+      audioUrl: url,
+      source: 'custom',
+      thumbnail: '/avatar.jpg',
+    };
+
+    saveTrackToLocalStorage(newTrack);
+    await onSelectTrack(newTrack);
+    playCopySuccess();
+    onClose();
   };
 
   const handleResetSong = () => {
@@ -208,7 +192,7 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </div>
-            <h2 className="text-white text-sm font-semibold tracking-tight">Pencarian Musik</h2>
+            <h2 className="text-white text-sm font-semibold tracking-tight">Pencarian Musik Lengkap</h2>
           </div>
 
           <button
@@ -227,57 +211,104 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
           </button>
         </div>
 
-        <div className="p-4 border-b border-white/10 bg-black/10">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
+        <div className="px-4 pt-3 pb-2 border-b border-white/10 bg-black/10 flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
               playTactileClick();
-              performSearch(query);
+              setActiveTab('search');
             }}
-            className="flex gap-2"
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              activeTab === 'search'
+                ? 'bg-[#fcd34d] text-black shadow'
+                : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
+            }`}
           >
-            <div className="relative flex-1">
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Cari lagu atau artis..."
-                className="w-full pl-9 pr-8 py-2 bg-black/50 border border-white/15 focus:border-[#fcd34d] rounded-xl text-white text-xs focus:outline-none transition-all placeholder:text-white/35"
-              />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-              </div>
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white cursor-pointer"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={searchLoading || !query.trim()}
-              className="px-4 py-2 bg-[#fcd34d] hover:bg-[#fbbf24] disabled:opacity-40 text-black font-semibold text-xs rounded-xl transition-colors cursor-pointer shrink-0"
-            >
-              {searchLoading ? (
-                <span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin inline-block" />
-              ) : (
-                'Cari'
-              )}
-            </button>
-          </form>
+            Cari Lagu
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              playTactileClick();
+              setActiveTab('presets');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              activeTab === 'presets'
+                ? 'bg-[#fcd34d] text-black shadow'
+                : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            Tema Pilihan
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              playTactileClick();
+              setActiveTab('custom');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              activeTab === 'custom'
+                ? 'bg-[#fcd34d] text-black shadow'
+                : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            URL MP3
+          </button>
         </div>
+
+        {activeTab === 'search' && (
+          <div className="p-4 border-b border-white/10 bg-black/10">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                playTactileClick();
+                performSearch(query);
+              }}
+              className="flex gap-2"
+            >
+              <div className="relative flex-1">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Ketik judul lagu lengkap atau artis..."
+                  className="w-full pl-9 pr-8 py-2 bg-black/50 border border-white/15 focus:border-[#fcd34d] rounded-xl text-white text-xs focus:outline-none transition-all placeholder:text-white/35"
+                />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </div>
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white cursor-pointer"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={searchLoading || !query.trim()}
+                className="px-4 py-2 bg-[#fcd34d] hover:bg-[#fbbf24] disabled:opacity-40 text-black font-semibold text-xs rounded-xl transition-colors cursor-pointer shrink-0"
+              >
+                {searchLoading ? (
+                  <span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin inline-block" />
+                ) : (
+                  'Cari'
+                )}
+              </button>
+            </form>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-[220px] max-h-[50vh]">
           {searchError && (
@@ -286,52 +317,66 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
             </div>
           )}
 
-          {searchLoading && (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-white/50 text-xs">
-              <span className="w-5 h-5 border-2 border-white/20 border-t-[#fcd34d] rounded-full animate-spin" />
-              <span>Mencari lagu di YouTube Music...</span>
-            </div>
-          )}
-
-          {!searchLoading && searchResults.length > 0 && (
-            <div className="space-y-1.5 text-left">
-              <p className="text-[11px] text-white/40 font-mono mb-2">Hasil Pencarian:</p>
-              {searchResults.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleSearchTrackClick(item)}
-                  className="group flex items-center gap-3 p-2 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.08] cursor-pointer transition-colors"
-                >
-                  <img
-                    src={item.thumbnail}
-                    alt={item.title}
-                    className="w-10 h-10 rounded-lg object-cover bg-black/40 shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-medium text-white truncate group-hover:text-[#fcd34d] transition-colors">
-                      {item.title}
-                    </h4>
-                    <p className="text-[10px] text-white/50 truncate font-mono">
-                      {item.artist} {item.duration ? `• ${formatDuration(item.duration)}` : ''}
-                    </p>
-                  </div>
-                  <div className="shrink-0">
-                    {loadingTrackId === item.id ? (
-                      <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-[#fcd34d] rounded-full animate-spin inline-block" />
-                    ) : (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#fcd34d]/15 text-[#fcd34d] group-hover:bg-[#fcd34d] group-hover:text-black transition-colors">
-                        Pilih
-                      </span>
-                    )}
-                  </div>
+          {activeTab === 'search' && (
+            <>
+              {searchLoading && (
+                <div className="py-12 flex flex-col items-center justify-center gap-2 text-white/50 text-xs">
+                  <span className="w-5 h-5 border-2 border-white/20 border-t-[#fcd34d] rounded-full animate-spin" />
+                  <span>Mencari lagu full length dari awal...</span>
                 </div>
-              ))}
-            </div>
+              )}
+
+              {!searchLoading && searchResults.length > 0 && (
+                <div className="space-y-1.5 text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] text-white/40 font-mono">Hasil Pencarian (Lagu Penuh dari 00:00):</p>
+                    <span className="text-[10px] text-emerald-400 font-mono">Full Audio</span>
+                  </div>
+                  {searchResults.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleSearchTrackClick(item)}
+                      className="group flex items-center gap-3 p-2 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.08] cursor-pointer transition-colors"
+                    >
+                      <img
+                        src={item.thumbnail || '/avatar.jpg'}
+                        alt={item.title}
+                        className="w-10 h-10 rounded-lg object-cover bg-black/40 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-xs font-medium text-white truncate group-hover:text-[#fcd34d] transition-colors">
+                          {item.title}
+                        </h4>
+                        <p className="text-[10px] text-white/50 truncate font-mono">
+                          {item.artist} {item.duration ? `• ${formatDuration(item.duration)}` : ''}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        {loadingTrackId === item.id ? (
+                          <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-[#fcd34d] rounded-full animate-spin inline-block" />
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#fcd34d]/15 text-[#fcd34d] group-hover:bg-[#fcd34d] group-hover:text-black transition-colors">
+                            Putar
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!searchLoading && searchResults.length === 0 && (
+                <div className="py-8 text-center text-white/40 text-xs">
+                  <p>Ketik judul lagu untuk mencari musik lengkap.</p>
+                  <p className="text-[10px] text-white/30 mt-1 font-mono">Semua lagu dimulai dari detik 00:00 intro hingga akhir.</p>
+                </div>
+              )}
+            </>
           )}
 
-          {!searchLoading && searchResults.length === 0 && (
+          {activeTab === 'presets' && (
             <div className="space-y-2 text-left">
-              <p className="text-[11px] text-white/40 font-mono mb-2">Lagu Evaluasi Tema:</p>
+              <p className="text-[11px] text-white/40 font-mono mb-2">Pilihan Lagu Utama (Full Length):</p>
               {EVALUATED_THEME_TRACKS.map((track) => {
                 const isCurrent = currentTrack?.id === track.id;
                 return (
@@ -379,6 +424,58 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
                 );
               })}
             </div>
+          )}
+
+          {activeTab === 'custom' && (
+            <form onSubmit={handleCustomSubmit} className="space-y-3 text-left">
+              <div className="p-3 bg-white/[0.03] border border-white/10 rounded-xl">
+                <p className="text-xs text-white/80 font-medium">Putar Langsung dari Link Audio</p>
+                <p className="text-[11px] text-white/45 mt-0.5 leading-relaxed">
+                  Masukkan link langsung file audio (MP3, M4A, AAC) dari internet. Audio akan diputar penuh dari awal.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-white/60 mb-1 font-mono">URL File Audio (MP3/M4A):</label>
+                <input
+                  type="url"
+                  required
+                  value={customUrl}
+                  onChange={(e) => setCustomUrl(e.target.value)}
+                  placeholder="https://example.com/audio/song.mp3"
+                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#fcd34d] rounded-xl text-white text-xs focus:outline-none transition-all font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-white/60 mb-1 font-mono">Judul Lagu:</label>
+                <input
+                  type="text"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  placeholder="Judul lagu pilihan Anda"
+                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#fcd34d] rounded-xl text-white text-xs focus:outline-none transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-white/60 mb-1 font-mono">Artis (Opsional):</label>
+                <input
+                  type="text"
+                  value={customArtist}
+                  onChange={(e) => setCustomArtist(e.target.value)}
+                  placeholder="Nama artis atau kreator"
+                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#fcd34d] rounded-xl text-white text-xs focus:outline-none transition-all"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2 bg-[#fcd34d] hover:bg-[#fbbf24] text-black font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Simpan & Putar
+              </button>
+            </form>
           )}
         </div>
 

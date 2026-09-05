@@ -32,7 +32,8 @@ export async function handler(event) {
       body: JSON.stringify(payload)
     });
 
-    if (!initRes.ok || initRes.status === 403) {
+    if (!initRes.ok) {
+      const errText = await initRes.text();
       return {
         statusCode: 502,
         headers: {
@@ -41,7 +42,7 @@ export async function handler(event) {
         },
         body: JSON.stringify({
           success: false,
-          error: 'Konversi audio sedang sibuk. Silakan coba beberapa detik lagi.'
+          error: `Convert init error (${initRes.status}): ${errText.slice(0, 150)}`
         })
       };
     }
@@ -59,7 +60,7 @@ export async function handler(event) {
         },
         body: JSON.stringify({
           success: false,
-          error: 'Konversi audio sedang sibuk. Silakan coba beberapa detik lagi.'
+          error: `Parse error: ${initText.slice(0, 150)}`
         })
       };
     }
