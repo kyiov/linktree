@@ -78,7 +78,6 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index = 0 }) => {
       className="relative w-full group animate-fade-up"
       style={{ animationDelay: `${delayMs}ms` }}
     >
-      {/* Toast Feedback */}
       {copied && (
         <div 
           className="animate-toast absolute -top-9 left-1/2 -translate-x-1/2 z-30 px-3 py-1 bg-black/85 backdrop-blur-md text-white text-[12px] font-medium rounded-full shadow-lg border border-white/15 whitespace-nowrap pointer-events-none flex items-center gap-1.5 select-none"
@@ -88,7 +87,6 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index = 0 }) => {
         </div>
       )}
 
-      {/* Main Pill Link */}
       <a
         href={link.url}
         target="_blank"
@@ -97,14 +95,12 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index = 0 }) => {
         onClick={() => playTactileClick(index)}
         className="linktree-pill relative w-full min-h-[64px] sm:min-h-[70px] py-3.5 px-6 sm:px-12 flex items-center justify-center text-center font-dmsans border border-white/10 hover:border-white/20 cursor-pointer select-none"
       >
-        {/* Subtle keyboard shortcut indicator on desktop */}
         {index < 9 && (
           <span className="hidden sm:inline-flex absolute left-4 top-1/2 -translate-y-1/2 items-center justify-center w-5 h-5 rounded-full bg-black/20 border border-white/10 text-white/30 text-[10px] font-mono group-hover:text-white/60 group-hover:border-white/25 transition-colors pointer-events-none">
             {index + 1}
           </span>
         )}
 
-        {/* Integrated Typography with Kinetic Micro-Stagger */}
         <div className="flex flex-col items-center justify-center w-full px-2">
           <div className="flex items-center justify-center">
             {renderDualToneTitle(link.title)}
@@ -116,7 +112,6 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index = 0 }) => {
           )}
         </div>
 
-        {/* Restrained external arrow indicator */}
         <span 
           aria-hidden="true"
           className="hidden sm:inline-flex absolute right-4 top-1/2 -translate-y-1/2 text-white/30 group-hover:text-white/75 group-hover:translate-x-0.5 group-hover:-translate-y-[calc(50%+1px)] transition-all duration-200 pointer-events-none"
@@ -125,7 +120,6 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index = 0 }) => {
         </span>
       </a>
 
-      {/* Discrete Copy Action Button */}
       <button
         type="button"
         onClick={handleCopy}

@@ -14,22 +14,17 @@ function getAudioContext(): AudioContext | null {
   return audioCtx;
 }
 
-// Pentatonic major scale frequencies (C5, D5, E5, G5, A5, C6, D6, E6)
 const PENTATONIC_SCALE = [
-  523.25, // C5
-  587.33, // D5
-  659.25, // E5
-  783.99, // G5
-  880.00, // A5
-  1046.50, // C6
-  1174.66, // D6
-  1318.51, // E6
+  523.25,
+  587.33,
+  659.25,
+  783.99,
+  880.00,
+  1046.50,
+  1174.66,
+  1318.51,
 ];
 
-/**
- * Plays a mechanical analog click layered with a warm pentatonic acoustic kalimba chime.
- * Higher noteIndex generates an ascending harmonic scale tone.
- */
 export function playTactileClick(noteIndex: number = 0): void {
   try {
     const ctx = getAudioContext();
@@ -38,7 +33,6 @@ export function playTactileClick(noteIndex: number = 0): void {
     const now = ctx.currentTime;
     const baseFreq = PENTATONIC_SCALE[Math.abs(noteIndex) % PENTATONIC_SCALE.length];
 
-    // 1. Mechanical keypress thud (analog tactile body)
     const thudOsc = ctx.createOscillator();
     const thudGain = ctx.createGain();
     const thudFilter = ctx.createBiquadFilter();
@@ -60,7 +54,6 @@ export function playTactileClick(noteIndex: number = 0): void {
     thudOsc.start(now);
     thudOsc.stop(now + 0.04);
 
-    // 2. Harmonic kalimba/marimba resonant tone
     const toneOsc = ctx.createOscillator();
     const toneGain = ctx.createGain();
     const toneFilter = ctx.createBiquadFilter();
