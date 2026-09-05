@@ -21,24 +21,73 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
 
   useEffect(() => {
     const saved = getTrackFromLocalStorage();
-    if (saved) {
-      setCurrentTrack(saved);
+    let trackToLoad: Track | null = null;
+    if (saved && saved.audioUrl) {
+      trackToLoad = saved;
     } else if (config.defaultTrack) {
-      setCurrentTrack({
+      trackToLoad = {
         id: config.defaultTrack.id,
         title: config.defaultTrack.title,
         artist: config.defaultTrack.artist,
         duration: config.defaultTrack.duration,
         audioUrl: config.defaultTrack.audioUrl,
         thumbnail: config.defaultTrack.thumbnail || '',
-      });
-    } else {
-      setCurrentTrack(null);
+      };
+    }
+    setCurrentTrack(trackToLoad);
+
+    const audio = audioRef.current;
+    if (audio) {
+      audio.volume = config.volume ?? 0.65;
+      audio.loop = config.loop ?? true;
+      if (trackToLoad?.audioUrl && !audio.src) {
+        audio.src = trackToLoad.audioUrl;
+      }
     }
 
-    if (audioRef.current) {
-      audioRef.current.volume = config.volume ?? 0.65;
-      audioRef.current.loop = config.loop ?? true;
+    // Resilient autoplay: try immediate play, fallback to first user gesture
+    let cleanupAutoplayListeners = () => {};
+    const shouldAutoplay = config.autoplay ?? true;
+
+    if (shouldAutoplay && trackToLoad?.audioUrl) {
+      let hasStarted = false;
+
+      const triggerPlay = () => {
+        if (hasStarted) return;
+        const a = audioRef.current;
+        if (!a) return;
+        if (!a.src && trackToLoad?.audioUrl) {
+          a.src = trackToLoad.audioUrl;
+        }
+        a.play()
+          .then(() => {
+            hasStarted = true;
+            setIsPlaying(true);
+            onTogglePlay?.(true);
+            cleanupAutoplayListeners();
+          })
+          .catch(() => {
+            // Autoplay blocked by browser policy; waiting for first interaction
+          });
+      };
+
+      cleanupAutoplayListeners = () => {
+        window.removeEventListener('pointerdown', triggerPlay);
+        window.removeEventListener('click', triggerPlay);
+        window.removeEventListener('touchstart', triggerPlay);
+        window.removeEventListener('keydown', triggerPlay);
+        window.removeEventListener('scroll', triggerPlay);
+      };
+
+      // 1. Try playing immediately upon mount
+      triggerPlay();
+
+      // 2. Attach first interaction listeners if browser blocks direct autoplay
+      window.addEventListener('pointerdown', triggerPlay, { once: true, passive: true });
+      window.addEventListener('click', triggerPlay, { once: true, passive: true });
+      window.addEventListener('touchstart', triggerPlay, { once: true, passive: true });
+      window.addEventListener('keydown', triggerPlay, { once: true, passive: true });
+      window.addEventListener('scroll', triggerPlay, { once: true, passive: true });
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -54,7 +103,10 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      cleanupAutoplayListeners();
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const togglePlay = () => {

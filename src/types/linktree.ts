@@ -32,6 +32,7 @@ export interface MusicConfig {
   volume: number;
   loop: boolean;
   presets?: string[];
+  autoplay?: boolean;
 }
 
 export interface FeatureFlags {

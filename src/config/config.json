@@ -9,6 +9,7 @@
   },
   "music": {
     "enabled": true,
+    "autoplay": true,
     "defaultTrack": {
       "id": "snowfall",
       "title": "snowfall",
