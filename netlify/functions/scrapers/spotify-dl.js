@@ -8,7 +8,10 @@ export async function getSpotify(spotifyUrl) {
   if (data.code !== 200) throw new Error(data.message || "Failed");
 
   const b64 = new URLSearchParams(data.originalVideoUrl.split("?")[1]).get("url");
-  const directUrl = Buffer.from(b64, "base64").toString("utf8");
+  let directUrl = Buffer.from(b64, "base64").toString("utf8");
+  if (directUrl) {
+    directUrl = directUrl.replace(/https?:\/\/cdn-spotify[a-zA-Z0-9_-]*\.zm\.io\.vn/g, 'https://cdn-spotify.zm.io.vn');
+  }
 
   return {
     title: data.title,

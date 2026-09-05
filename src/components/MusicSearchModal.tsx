@@ -124,9 +124,11 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
         throw new Error(data.error || 'Tautan stream audio tidak ditemukan');
       }
 
+      const normalizedUrl = (data.downloadUrl || '').replace(/https?:\/\/cdn-spotify[a-zA-Z0-9_-]*\.zm\.io\.vn/g, 'https://cdn-spotify.zm.io.vn');
+
       const fullTrack: Track = {
         ...track,
-        audioUrl: data.downloadUrl,
+        audioUrl: normalizedUrl,
         title: data.title || track.title,
         artist: data.artist || track.artist,
         thumbnail: data.cover || track.thumbnail,

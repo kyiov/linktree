@@ -19,37 +19,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
   const [barHeights, setBarHeights] = useState<number[]>([2.5, 2.5, 2.5, 2.5]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   const rafIdRef = useRef<number | null>(null);
-
-  const setupWebAudio = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtx) return;
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new AudioCtx();
-      }
-      if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-      if (!sourceNodeRef.current && audioCtxRef.current) {
-        const analyser = audioCtxRef.current.createAnalyser();
-        analyser.fftSize = 64;
-        analyser.smoothingTimeConstant = 0.8;
-        const source = audioCtxRef.current.createMediaElementSource(audio);
-        source.connect(analyser);
-        analyser.connect(audioCtxRef.current.destination);
-        analyserRef.current = analyser;
-        sourceNodeRef.current = source;
-      }
-    } catch (err) {
-      console.debug('Web Audio API notice:', err);
-    }
-  };
 
   useEffect(() => {
     if (!isPlaying) {
@@ -61,42 +31,14 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
       return;
     }
 
-    setupWebAudio();
-
-    const dataArray = new Uint8Array(32);
     let prev = [3, 4, 3, 2];
 
     const renderFrame = () => {
-      let hasRealData = false;
-      let b0 = 2.5;
-      let b1 = 2.5;
-      let b2 = 2.5;
-      let b3 = 2.5;
-
-      if (analyserRef.current) {
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const maxVal = Math.max(...dataArray);
-        if (maxVal > 0) {
-          hasRealData = true;
-          const bass = (dataArray[1] + dataArray[2]) / 2;
-          const lowMid = (dataArray[3] + dataArray[4] + dataArray[5]) / 3;
-          const highMid = (dataArray[6] + dataArray[7] + dataArray[8]) / 3;
-          const treble = (dataArray[10] + dataArray[11] + dataArray[12]) / 3;
-
-          b0 = 2.5 + (bass / 255) * 11.5;
-          b1 = 2.5 + (lowMid / 255) * 11.5;
-          b2 = 2.5 + (highMid / 255) * 11.5;
-          b3 = 2.5 + (treble / 255) * 11.5;
-        }
-      }
-
-      if (!hasRealData) {
-        const t = performance.now() * 0.007;
-        b0 = 3 + (Math.sin(t * 2.1) * 0.5 + 0.5) * 8 + Math.sin(t * 0.9) * 2;
-        b1 = 4.5 + (Math.sin(t * 2.9 + 1.1) * 0.5 + 0.5) * 9.5;
-        b2 = 3.5 + (Math.sin(t * 2.4 + 2.2) * 0.5 + 0.5) * 8.5;
-        b3 = 3 + (Math.sin(t * 3.6 + 0.7) * 0.5 + 0.5) * 6.5;
-      }
+      const t = performance.now() * 0.007;
+      const b0 = 3 + (Math.sin(t * 2.1) * 0.5 + 0.5) * 8 + Math.sin(t * 0.9) * 2;
+      const b1 = 4.5 + (Math.sin(t * 2.9 + 1.1) * 0.5 + 0.5) * 9.5;
+      const b2 = 3.5 + (Math.sin(t * 2.4 + 2.2) * 0.5 + 0.5) * 8.5;
+      const b3 = 3 + (Math.sin(t * 3.6 + 0.7) * 0.5 + 0.5) * 6.5;
 
       const s0 = Math.max(2.5, Math.min(14, prev[0] * 0.55 + b0 * 0.45));
       const s1 = Math.max(2.5, Math.min(14, prev[1] * 0.55 + b1 * 0.45));
@@ -270,6 +212,10 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
       }
     }
 
+    if (finalTrack.audioUrl) {
+      finalTrack.audioUrl = finalTrack.audioUrl.replace(/https?:\/\/cdn-spotify[a-zA-Z0-9_-]*\.zm\.io\.vn/g, 'https://cdn-spotify.zm.io.vn');
+    }
+
     setCurrentTrack(finalTrack);
 
     if (audio && finalTrack.audioUrl) {
@@ -278,26 +224,23 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
         audio.currentTime = 0;
       } catch {}
       audio.src = finalTrack.audioUrl;
-      audio.load();
-      try {
-        await audio.play();
-        setIsPlaying(true);
-        onTogglePlay?.(true);
-      } catch {
-        audio.oncanplay = () => {
-          try {
-            audio.currentTime = 0;
-          } catch {}
-          audio.play().then(() => {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
             setIsPlaying(true);
+            setIsLoadingAudio(false);
             onTogglePlay?.(true);
-          }).catch(() => {});
-          audio.oncanplay = null;
-        };
+          })
+          .catch((err) => {
+            console.debug('Audio play deferred:', err);
+            setIsLoadingAudio(false);
+          });
       }
+    } else {
+      setIsLoadingAudio(false);
     }
 
-    setIsLoadingAudio(false);
     playCopySuccess();
   };
 
@@ -331,32 +274,37 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
     <>
       <audio
         ref={audioRef}
-        crossOrigin="anonymous"
         src={currentTrack?.audioUrl || ''}
         preload="auto"
         loop={config.loop ?? true}
         onPlay={() => {
           setIsPlaying(true);
+          setIsLoadingAudio(false);
+          onTogglePlay?.(true);
+        }}
+        onPlaying={() => {
+          setIsPlaying(true);
+          setIsLoadingAudio(false);
           onTogglePlay?.(true);
         }}
         onPause={() => {
           setIsPlaying(false);
           onTogglePlay?.(false);
         }}
+        onWaiting={() => {
+          setIsLoadingAudio(true);
+        }}
+        onCanPlay={() => {
+          setIsLoadingAudio(false);
+        }}
         onEnded={() => {
           setIsPlaying(false);
           onTogglePlay?.(false);
         }}
         onError={() => {
-          if (audioRef.current && audioRef.current.crossOrigin) {
-            audioRef.current.removeAttribute('crossOrigin');
-            if (currentTrack?.audioUrl) {
-              audioRef.current.src = currentTrack.audioUrl;
-              audioRef.current.play().catch(() => {});
-              return;
-            }
-          }
+          setIsLoadingAudio(false);
           setIsPlaying(false);
+          onTogglePlay?.(false);
         }}
       />
 

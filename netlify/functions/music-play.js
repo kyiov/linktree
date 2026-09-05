@@ -27,6 +27,8 @@ export async function handler(event) {
 
   try {
     const playRes = await spotifyPlay(q);
+    const rawDl = playRes.download_url || '';
+    const downloadUrl = rawDl.replace(/https?:\/\/cdn-spotify[a-zA-Z0-9_-]*\.zm\.io\.vn/g, 'https://cdn-spotify.zm.io.vn');
     return {
       statusCode: 200,
       headers: {
@@ -39,7 +41,7 @@ export async function handler(event) {
         artist: playRes.artist,
         album: playRes.album,
         cover: playRes.cover,
-        downloadUrl: playRes.download_url,
+        downloadUrl,
         url: playRes.url,
         source: 'spotify'
       })

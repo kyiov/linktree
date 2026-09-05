@@ -1,5 +1,10 @@
 import { getSpotify } from './spotify-dl.js';
 
+function normalizeCdnUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  return url.replace(/https?:\/\/cdn-spotify[a-zA-Z0-9_-]*\.zm\.io\.vn/g, 'https://cdn-spotify.zm.io.vn');
+}
+
 export async function spotifyPlay(query) {
   if (!query || typeof query !== 'string') {
     throw new Error("Parameter query wajib diisi.");
@@ -18,7 +23,7 @@ export async function spotifyPlay(query) {
           album: 'Single',
           cover: direct.cover,
           url: trimmed,
-          download_url: direct.download,
+          download_url: normalizeCdnUrl(direct.download),
           source: 'spotify-dl'
         };
       }
@@ -40,7 +45,7 @@ export async function spotifyPlay(query) {
           album: data.result.album || 'Single',
           cover: data.result.cover || '',
           url: data.result.url || trimmed,
-          download_url: data.result.download_url,
+          download_url: normalizeCdnUrl(data.result.download_url),
           source: data.result.source || 'spotify-play'
         };
       }
@@ -62,7 +67,7 @@ export async function spotifyPlay(query) {
           album: 'Single',
           cover: data.result.cover || '',
           url: data.result.url || trimmed,
-          download_url: data.result.download_url,
+          download_url: normalizeCdnUrl(data.result.download_url),
           source: 'kyioapi-spotify'
         };
       }
@@ -85,7 +90,7 @@ export async function spotifyPlay(query) {
             album: top.album?.name || 'Single',
             cover: direct.cover || top.thumbnail,
             url: trackUrl,
-            download_url: direct.download,
+            download_url: normalizeCdnUrl(direct.download),
             source: 'spotify-dl'
           };
         }
