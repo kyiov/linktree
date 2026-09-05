@@ -247,13 +247,21 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
     setCurrentTrack(track);
 
     if (audio && track.audioUrl) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
       audio.src = track.audioUrl;
+      audio.load();
       try {
         await audio.play();
         setIsPlaying(true);
         onTogglePlay?.(true);
       } catch {
         audio.oncanplay = () => {
+          try {
+            audio.currentTime = 0;
+          } catch {}
           audio.play().then(() => {
             setIsPlaying(true);
             onTogglePlay?.(true);
