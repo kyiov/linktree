@@ -43,16 +43,10 @@ export const ProfileFooter: React.FC<ProfileFooterProps> = ({ handle, totalLinks
 
   return (
     <footer className="relative w-full mt-5 pb-12 flex flex-col items-center gap-3 text-center select-none animate-fade-up" style={{ animationDelay: '480ms' }}>
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/30 border border-white/10 text-[11px] font-mono text-white/60 tracking-tight shadow-sm">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-        </span>
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/25 border border-white/10 text-[11px] font-mono text-white/60 tracking-tight">
         <span className="text-white/80 font-medium">Pontianak, ID</span>
-        <span className="text-white/30">•</span>
+        <span className="text-white/25">•</span>
         <span className="text-amber-200/90 font-semibold tabular-nums">{time || '--:--:--'} WIB</span>
-        <span className="text-white/30">•</span>
-        <span className="text-white/40 text-[10px]">0°0′ Equator</span>
       </div>
 
       <div className="hidden sm:flex items-center gap-2 text-[10px] font-mono text-white/40 tracking-wider">
