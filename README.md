@@ -1,4 +1,4 @@
-# Linktree — muh4r_ (@muh4r_)
+# Linktree — Muhar (@muh4r_)
 
 [![React](https://img.shields.io/badge/React-19.0-61dafb.svg?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
@@ -108,7 +108,7 @@ All profile data, links, music settings, and feature flags are declaratively man
 ```json
 {
   "profile": {
-    "name": "muh4r_",
+    "name": "Muhar",
     "handle": "@muh4r_",
     "title": "Developer & Creator",
     "bio": "",

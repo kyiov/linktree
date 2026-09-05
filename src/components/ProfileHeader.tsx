@@ -64,6 +64,24 @@ export const ProfileInfo: React.FC<{ profile: ProfileDetails; socials: SocialLin
               strokeLinecap="round"
             />
           </svg>
+
+          {profile.handle && (
+            <span className="font-mono text-[13px] sm:text-[14px] text-white/50 tracking-tight mt-1 select-none">
+              {profile.handle}
+            </span>
+          )}
+
+          {profile.title && (
+            <p className="text-[13px] sm:text-[14px] font-medium text-amber-200/90 tracking-wide mt-2 select-none">
+              {profile.title}
+            </p>
+          )}
+
+          {profile.bio && (
+            <p className="text-[12.5px] sm:text-[13px] text-white/70 font-normal leading-relaxed max-w-[420px] text-center mt-2 px-3 select-none">
+              {profile.bio}
+            </p>
+          )}
         </div>
       </div>
 

@@ -26,7 +26,7 @@ export const ProfileFooter: React.FC<ProfileFooterProps> = ({ handle, totalLinks
       </div>
 
       <p className="text-[11px] text-white/30 font-sans tracking-wide">
-        © 2026 {handle.replace('@', '')}
+        © 2026 Muhar ({handle})
       </p>
     </footer>
   );
