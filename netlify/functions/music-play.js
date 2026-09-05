@@ -33,46 +33,6 @@ export async function handler(event) {
     });
 
     if (!initRes.ok || initRes.status === 403) {
-      const fbRes = await fetch(`https://uprising-nugget-dispatch.ngrok-free.dev/api/music/play?id=${encodeURIComponent(videoId)}`, {
-        headers: { 'ngrok-skip-browser-warning': '1' }
-      });
-      if (fbRes.ok) {
-        const fbData = await fbRes.json();
-        if (fbData.success && fbData.downloadUrl) {
-          return {
-            statusCode: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            },
-            body: JSON.stringify(fbData)
-          };
-        }
-      }
-    }
-
-    const initText = await initRes.text();
-    let initData;
-    try {
-      initData = JSON.parse(initText);
-    } catch {
-      const fbRes = await fetch(`https://uprising-nugget-dispatch.ngrok-free.dev/api/music/play?id=${encodeURIComponent(videoId)}`, {
-        headers: { 'ngrok-skip-browser-warning': '1' }
-      });
-      if (fbRes.ok) {
-        const fbData = await fbRes.json();
-        if (fbData.success && fbData.downloadUrl) {
-          return {
-            statusCode: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            },
-            body: JSON.stringify(fbData)
-          };
-        }
-      }
-
       return {
         statusCode: 502,
         headers: {
@@ -81,7 +41,25 @@ export async function handler(event) {
         },
         body: JSON.stringify({
           success: false,
-          error: `Konversi audio sedang sibuk. Silakan coba beberapa detik lagi.`
+          error: 'Konversi audio sedang sibuk. Silakan coba beberapa detik lagi.'
+        })
+      };
+    }
+
+    const initText = await initRes.text();
+    let initData;
+    try {
+      initData = JSON.parse(initText);
+    } catch {
+      return {
+        statusCode: 502,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify({
+          success: false,
+          error: 'Konversi audio sedang sibuk. Silakan coba beberapa detik lagi.'
         })
       };
     }

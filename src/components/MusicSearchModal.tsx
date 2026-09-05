@@ -75,19 +75,53 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
     setSearchError(null);
 
     try {
-      const res = await fetch(`/api/music/search?q=${encodeURIComponent(trimmed)}`);
-      if (!res.ok) {
-        throw new Error('Gagal memuat hasil pencarian. Coba lagi beberapa saat.');
+      let items: Track[] = [];
+
+      try {
+        const itunesRes = await fetch(
+          `https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&entity=song&limit=15`
+        );
+        if (itunesRes.ok) {
+          const itunesData = await itunesRes.json();
+          if (Array.isArray(itunesData.results) && itunesData.results.length > 0) {
+            items = itunesData.results
+              .filter((r: any) => r.previewUrl)
+              .map((r: any) => ({
+                id: `itunes-${r.trackId}`,
+                title: r.trackName,
+                artist: r.artistName,
+                duration: r.trackTimeMillis ? Math.round(r.trackTimeMillis / 1000) : 30,
+                thumbnail: r.artworkUrl100 ? r.artworkUrl100.replace('100x100bb.jpg', '300x300bb.jpg') : '',
+                audioUrl: r.previewUrl,
+                source: 'search' as const,
+              }));
+          }
+        }
+      } catch {}
+
+      if (items.length === 0) {
+        try {
+          const res = await fetch(`/api/music/search?q=${encodeURIComponent(trimmed)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.results)) {
+              items = data.results.map((r: any) => ({
+                ...r,
+                source: 'search' as const,
+              }));
+            }
+          }
+        } catch {}
       }
-      const data = await res.json();
-      if (data.success && Array.isArray(data.results) && data.results.length > 0) {
-        setSearchResults(data.results);
+
+      if (items.length > 0) {
+        setSearchResults(items);
       } else {
         setSearchResults([]);
         setSearchError('Lagu tidak ditemukan. Coba kata kunci yang lain.');
       }
-    } catch (err: any) {
-      setSearchError(err?.message || 'Gagal terhubung ke layanan musik.');
+    } catch {
+      setSearchError('Gagal memuat hasil pencarian. Coba lagi beberapa saat.');
     } finally {
       setSearchLoading(false);
     }
@@ -107,6 +141,14 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
     setSearchError(null);
 
     try {
+      if (track.audioUrl) {
+        saveTrackToLocalStorage(track);
+        await onSelectTrack(track);
+        playCopySuccess();
+        onClose();
+        return;
+      }
+
       let data: any = null;
       try {
         const res = await fetch(`/api/music/play?id=${encodeURIComponent(track.id)}`);
@@ -118,20 +160,8 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
         }
       } catch {}
 
-      if (!data) {
-        const fb = await fetch(`https://uprising-nugget-dispatch.ngrok-free.dev/api/music/play?id=${encodeURIComponent(track.id)}`, {
-          headers: { 'ngrok-skip-browser-warning': '1' }
-        });
-        if (fb.ok) {
-          const json = await fb.json();
-          if (json.success && json.downloadUrl) {
-            data = json;
-          }
-        }
-      }
-
       if (!data || !data.downloadUrl) {
-        throw new Error('Audio tidak dapat diputar saat ini.');
+        throw new Error('Audio belum dapat diputar saat ini.');
       }
 
       const resolvedTrack: Track = {
