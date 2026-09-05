@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { playTactileClick, playCopySuccess } from '../utils/audio';
 import { MusicSearchModal, Track } from './MusicSearchModal';
 import { MusicConfig } from '../types/linktree';
-import { getTrackFromLocalStorage } from '../utils/audioStorage';
+import { getTrackFromLocalStorage, saveTrackToLocalStorage } from '../utils/audioStorage';
 
 interface MusicPlayerProps {
   config: MusicConfig;
@@ -137,6 +137,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
         duration: config.defaultTrack.duration,
         audioUrl: config.defaultTrack.audioUrl,
         thumbnail: config.defaultTrack.thumbnail || '',
+        source: 'preset',
       };
     }
     setCurrentTrack(trackToLoad);
@@ -243,15 +244,40 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
   const handleSelectTrack = async (track: Track) => {
     setIsLoadingAudio(true);
     const audio = audioRef.current;
+    let finalTrack = track;
 
-    setCurrentTrack(track);
+    if (!finalTrack.audioUrl) {
+      try {
+        const paramId = finalTrack.spotifyId || finalTrack.id;
+        const paramQuery = finalTrack.url || `${finalTrack.title} ${finalTrack.artist}`;
+        const res = await fetch(`/api/music/play?id=${encodeURIComponent(paramId)}&q=${encodeURIComponent(paramQuery)}`);
+        if (res.ok) {
+          const playData = await res.json();
+          if (playData.success && playData.downloadUrl) {
+            finalTrack = {
+              ...finalTrack,
+              audioUrl: playData.downloadUrl,
+              title: playData.title || finalTrack.title,
+              artist: playData.artist || finalTrack.artist,
+              thumbnail: playData.cover || finalTrack.thumbnail,
+              source: 'spotify',
+            };
+            saveTrackToLocalStorage(finalTrack);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to resolve play url:', err);
+      }
+    }
 
-    if (audio && track.audioUrl) {
+    setCurrentTrack(finalTrack);
+
+    if (audio && finalTrack.audioUrl) {
       try {
         audio.pause();
         audio.currentTime = 0;
       } catch {}
-      audio.src = track.audioUrl;
+      audio.src = finalTrack.audioUrl;
       audio.load();
       try {
         await audio.play();
@@ -292,11 +318,14 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
         duration: config.defaultTrack.duration,
         audioUrl: config.defaultTrack.audioUrl,
         thumbnail: config.defaultTrack.thumbnail || '',
+        source: 'preset',
       });
     } else {
       setCurrentTrack(null);
     }
   };
+
+  const isSpotify = currentTrack?.source === 'spotify';
 
   return (
     <>
@@ -352,7 +381,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
           <div
             className={`flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full backdrop-blur-md transition-all duration-300 shadow-xl border ${
               isPlaying
-                ? 'bg-black/85 border-[#fcd34d]/40 text-white shadow-[#fcd34d]/10 ring-1 ring-[#fcd34d]/20'
+                ? isSpotify
+                  ? 'bg-black/85 border-[#1DB954]/50 text-white shadow-[#1DB954]/15 ring-1 ring-[#1DB954]/30'
+                  : 'bg-black/85 border-[#fcd34d]/40 text-white shadow-[#fcd34d]/10 ring-1 ring-[#fcd34d]/20'
                 : 'bg-black/60 hover:bg-black/75 border-white/15 hover:border-white/30 text-white/80'
             }`}
           >
@@ -364,7 +395,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
               className="flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer shrink-0"
             >
               {isLoadingAudio ? (
-                <span className="w-3 h-3 border-2 border-white/30 border-t-[#fcd34d] rounded-full animate-spin" />
+                <span className={`w-3 h-3 border-2 border-white/30 rounded-full animate-spin ${isSpotify ? 'border-t-[#1DB954]' : 'border-t-[#fcd34d]'}`} />
               ) : isPlaying ? (
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="5" y="4" width="4" height="16" rx="1" />
@@ -388,7 +419,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
                   className="w-[2.5px] rounded-full transition-all duration-75 ease-out"
                   style={{
                     height: `${h}px`,
-                    backgroundColor: isPlaying ? '#fcd34d' : 'rgba(255,255,255,0.25)',
+                    backgroundColor: isPlaying ? (isSpotify ? '#1DB954' : '#fcd34d') : 'rgba(255,255,255,0.25)',
                   }}
                 />
               ))}
@@ -400,9 +431,16 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({ config, onTogglePlay }
                 playTactileClick();
                 setIsSearchOpen(true);
               }}
-              className="text-[11px] font-medium tracking-tight truncate max-w-[120px] sm:max-w-[160px] text-left hover:text-[#fcd34d] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-[11px] font-medium tracking-tight truncate max-w-[120px] sm:max-w-[160px] text-left hover:text-[#1DB954] transition-colors cursor-pointer"
             >
-              <span className={isPlaying ? 'text-[#fcd34d]' : 'text-white/90'}>
+              {isSpotify && (
+                <span className="shrink-0 text-[#1DB954]">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                  </svg>
+                </span>
+              )}
+              <span className={isPlaying ? (isSpotify ? 'text-[#1DB954]' : 'text-[#fcd34d]') : 'text-white/90'}>
                 {currentTrack.title}
               </span>
             </button>

@@ -13,8 +13,11 @@ export interface Track {
   duration?: number;
   thumbnail?: string;
   audioUrl?: string;
-  source?: 'preset' | 'search' | 'custom';
+  spotifyId?: string;
+  youtubeId?: string;
+  source?: 'preset' | 'spotify' | 'youtube' | 'custom';
   description?: string;
+  url?: string;
 }
 
 interface MusicSearchModalProps {
@@ -46,11 +49,12 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [loadingTrackId, setLoadingTrackId] = useState<string | null>(null);
+  const [resolvingTrackId, setResolvingTrackId] = useState<string | null>(null);
 
-  const [customUrl, setCustomUrl] = useState('');
+  const [customInput, setCustomInput] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [customArtist, setCustomArtist] = useState('');
+  const [customLoading, setCustomLoading] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -81,88 +85,117 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
 
     try {
       const res = await fetch(`/api/music/search?q=${encodeURIComponent(trimmed)}`);
-      if (!res.ok) throw new Error('Layanan pencarian tidak merespons');
+      if (!res.ok) throw new Error('Gagal menghubungi layanan pencarian');
 
       const data = await res.json();
       if (!data.success || !Array.isArray(data.results) || data.results.length === 0) {
         setSearchResults([]);
-        setSearchError('Lagu tidak ditemukan. Coba judul lain atau gunakan tab URL/Preset.');
+        setSearchError('Lagu tidak ditemukan di Spotify. Coba kata kunci judul lain atau tempel tautan Spotify.');
         return;
       }
 
       setSearchResults(data.results);
     } catch {
-      setSearchError('Gagal memuat hasil pencarian. Periksa koneksi Anda.');
+      setSearchError('Gagal memuat pencarian Spotify. Periksa koneksi internet Anda.');
     } finally {
       setSearchLoading(false);
     }
   };
 
-  const handleSelectPreset = async (preset: Track) => {
+  const handleSelectTrack = async (track: Track) => {
     playTactileClick();
-    saveTrackToLocalStorage(preset);
-    await onSelectTrack(preset);
-    playCopySuccess();
-    onClose();
-  };
 
-  const handleSearchTrackClick = async (track: Track) => {
-    playTactileClick();
-    setLoadingTrackId(track.id);
+    if (track.audioUrl) {
+      saveTrackToLocalStorage(track);
+      await onSelectTrack(track);
+      playCopySuccess();
+      onClose();
+      return;
+    }
+
+    setResolvingTrackId(track.id);
     setSearchError(null);
 
     try {
-      if (track.audioUrl) {
-        saveTrackToLocalStorage(track);
-        await onSelectTrack(track);
-        playCopySuccess();
-        onClose();
-        return;
-      }
-
-      const res = await fetch(`/api/music/play?id=${encodeURIComponent(track.id)}`);
-      if (!res.ok) throw new Error('Audio belum dapat dimuat saat ini');
+      const paramId = track.spotifyId || track.id;
+      const paramQuery = track.url || `${track.title} ${track.artist}`;
+      const res = await fetch(`/api/music/play?id=${encodeURIComponent(paramId)}&q=${encodeURIComponent(paramQuery)}`);
+      if (!res.ok) throw new Error('Gagal memproses audio dari server');
 
       const data = await res.json();
-      if (!data || !data.downloadUrl) throw new Error('Audio tidak dapat diakses');
+      if (!data.success || !data.downloadUrl) {
+        throw new Error(data.error || 'Tautan stream audio tidak ditemukan');
+      }
 
-      const resolvedTrack: Track = {
+      const fullTrack: Track = {
         ...track,
         audioUrl: data.downloadUrl,
-        duration: data.duration || track.duration,
-        source: 'search',
+        title: data.title || track.title,
+        artist: data.artist || track.artist,
+        thumbnail: data.cover || track.thumbnail,
+        source: 'spotify',
       };
 
-      saveTrackToLocalStorage(resolvedTrack);
-      await onSelectTrack(resolvedTrack);
+      saveTrackToLocalStorage(fullTrack);
+      await onSelectTrack(fullTrack);
       playCopySuccess();
       onClose();
-    } catch (err: any) {
-      setSearchError(err?.message || 'Gagal memutar trek.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memutar lagu dari Spotify';
+      setSearchError(msg);
     } finally {
-      setLoadingTrackId(null);
+      setResolvingTrackId(null);
     }
   };
 
   const handleCustomSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = customUrl.trim();
-    if (!url) return;
+    const raw = customInput.trim();
+    if (!raw) return;
 
     playTactileClick();
+    setCustomLoading(true);
+    setSearchError(null);
+
+    const isSpotify = /open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/i.test(raw);
+
+    if (isSpotify) {
+      try {
+        const res = await fetch(`/api/music/play?q=${encodeURIComponent(raw)}`);
+        const data = await res.json();
+        if (data.success && data.downloadUrl) {
+          const newTrack: Track = {
+            id: `sp-${Date.now()}`,
+            title: customTitle.trim() || data.title || 'Spotify Track',
+            artist: customArtist.trim() || data.artist || 'Spotify Artist',
+            audioUrl: data.downloadUrl,
+            thumbnail: data.cover || '/avatar.jpg',
+            source: 'spotify',
+            url: data.url || raw,
+          };
+          saveTrackToLocalStorage(newTrack);
+          await onSelectTrack(newTrack);
+          playCopySuccess();
+          onClose();
+          return;
+        }
+      } catch {}
+    }
+
     const newTrack: Track = {
       id: `custom-${Date.now()}`,
-      title: customTitle.trim() || 'Custom Audio',
-      artist: customArtist.trim() || 'Audio URL',
-      audioUrl: url,
-      source: 'custom',
+      title: customTitle.trim() || 'Audio Pilihan',
+      artist: customArtist.trim() || 'Custom Source',
+      audioUrl: raw,
       thumbnail: '/avatar.jpg',
+      source: 'custom',
     };
 
     saveTrackToLocalStorage(newTrack);
     await onSelectTrack(newTrack);
     playCopySuccess();
     onClose();
+    setCustomLoading(false);
   };
 
   const handleResetSong = () => {
@@ -181,18 +214,18 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
       />
 
       <div
-        className="relative z-10 w-full max-w-[480px] max-h-[85vh] bg-[#1c0e15] border border-white/15 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in"
+        className="relative z-10 w-full max-w-[480px] max-h-[85vh] bg-[#140c11] border border-white/15 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-3.5 flex items-center justify-between border-b border-white/10 bg-black/20">
+        <div className="px-5 py-3.5 flex items-center justify-between border-b border-white/10 bg-black/30">
           <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-full bg-[#fcd34d]/15 text-[#fcd34d] flex items-center justify-center">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            <div className="w-6 h-6 rounded-full bg-[#1DB954]/20 text-[#1DB954] flex items-center justify-center">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
               </svg>
             </div>
-            <h2 className="text-white text-sm font-semibold tracking-tight">Pencarian Musik Lengkap</h2>
+            <h2 className="text-white text-sm font-semibold tracking-tight">Spotify Play</h2>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/30">KyioAPI</span>
           </div>
 
           <button
@@ -211,7 +244,7 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
           </button>
         </div>
 
-        <div className="px-4 pt-3 pb-2 border-b border-white/10 bg-black/10 flex gap-2">
+        <div className="px-4 pt-3 pb-2 border-b border-white/10 bg-black/15 flex gap-2">
           <button
             type="button"
             onClick={() => {
@@ -220,11 +253,11 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               activeTab === 'search'
-                ? 'bg-[#fcd34d] text-black shadow'
+                ? 'bg-[#1DB954] text-black font-semibold shadow'
                 : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
             }`}
           >
-            Cari Lagu
+            Cari Spotify
           </button>
           <button
             type="button"
@@ -234,7 +267,7 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               activeTab === 'presets'
-                ? 'bg-[#fcd34d] text-black shadow'
+                ? 'bg-[#1DB954] text-black font-semibold shadow'
                 : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
             }`}
           >
@@ -248,11 +281,11 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               activeTab === 'custom'
-                ? 'bg-[#fcd34d] text-black shadow'
+                ? 'bg-[#1DB954] text-black font-semibold shadow'
                 : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
             }`}
           >
-            URL MP3
+            Link / URL
           </button>
         </div>
 
@@ -272,8 +305,8 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Ketik judul lagu lengkap atau artis..."
-                  className="w-full pl-9 pr-8 py-2 bg-black/50 border border-white/15 focus:border-[#fcd34d] rounded-xl text-white text-xs focus:outline-none transition-all placeholder:text-white/35"
+                  placeholder="Cari lagu Spotify atau tempel link..."
+                  className="w-full pl-9 pr-8 py-2 bg-black/50 border border-white/15 focus:border-[#1DB954] rounded-xl text-white text-xs focus:outline-none transition-all placeholder:text-white/35"
                 />
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -298,7 +331,7 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
               <button
                 type="submit"
                 disabled={searchLoading || !query.trim()}
-                className="px-4 py-2 bg-[#fcd34d] hover:bg-[#fbbf24] disabled:opacity-40 text-black font-semibold text-xs rounded-xl transition-colors cursor-pointer shrink-0"
+                className="px-4 py-2 bg-[#1DB954] hover:bg-[#1ed760] disabled:opacity-40 text-black font-semibold text-xs rounded-xl transition-colors cursor-pointer shrink-0"
               >
                 {searchLoading ? (
                   <span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin inline-block" />
@@ -321,54 +354,60 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
             <>
               {searchLoading && (
                 <div className="py-12 flex flex-col items-center justify-center gap-2 text-white/50 text-xs">
-                  <span className="w-5 h-5 border-2 border-white/20 border-t-[#fcd34d] rounded-full animate-spin" />
-                  <span>Mencari lagu full length dari awal...</span>
+                  <span className="w-5 h-5 border-2 border-white/20 border-t-[#1DB954] rounded-full animate-spin" />
+                  <span>Mencari lagu di Spotify...</span>
                 </div>
               )}
 
               {!searchLoading && searchResults.length > 0 && (
                 <div className="space-y-1.5 text-left">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-[11px] text-white/40 font-mono">Hasil Pencarian (Lagu Penuh dari 00:00):</p>
-                    <span className="text-[10px] text-emerald-400 font-mono">Full Audio</span>
+                    <p className="text-[11px] text-white/40 font-mono">Daftar Lagu Spotify:</p>
+                    <span className="text-[10px] text-[#1DB954] font-mono">Full Audio</span>
                   </div>
-                  {searchResults.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => handleSearchTrackClick(item)}
-                      className="group flex items-center gap-3 p-2 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.08] cursor-pointer transition-colors"
-                    >
-                      <img
-                        src={item.thumbnail || '/avatar.jpg'}
-                        alt={item.title}
-                        className="w-10 h-10 rounded-lg object-cover bg-black/40 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-xs font-medium text-white truncate group-hover:text-[#fcd34d] transition-colors">
-                          {item.title}
-                        </h4>
-                        <p className="text-[10px] text-white/50 truncate font-mono">
-                          {item.artist} {item.duration ? `• ${formatDuration(item.duration)}` : ''}
-                        </p>
+                  {searchResults.map((item) => {
+                    const isResolving = resolvingTrackId === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => !isResolving && handleSelectTrack(item)}
+                        className="group flex items-center gap-3 p-2 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.08] cursor-pointer transition-colors"
+                      >
+                        <img
+                          src={item.thumbnail || '/avatar.jpg'}
+                          alt={item.title}
+                          className="w-10 h-10 rounded-lg object-cover bg-black/40 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-xs font-medium text-white truncate group-hover:text-[#1DB954] transition-colors">
+                            {item.title}
+                          </h4>
+                          <p className="text-[10px] text-white/50 truncate font-mono">
+                            {item.artist} {item.duration ? `• ${formatDuration(item.duration)}` : ''}
+                          </p>
+                        </div>
+                        <div className="shrink-0">
+                          {isResolving ? (
+                            <span className="px-2 py-1 rounded text-[10px] font-medium bg-[#1DB954]/20 text-[#1DB954] flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 border-2 border-[#1DB954]/30 border-t-[#1DB954] rounded-full animate-spin inline-block" />
+                              Memuat...
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#1DB954]/20 text-[#1DB954] group-hover:bg-[#1DB954] group-hover:text-black transition-colors">
+                              Putar
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="shrink-0">
-                        {loadingTrackId === item.id ? (
-                          <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-[#fcd34d] rounded-full animate-spin inline-block" />
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#fcd34d]/15 text-[#fcd34d] group-hover:bg-[#fcd34d] group-hover:text-black transition-colors">
-                            Putar
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
               {!searchLoading && searchResults.length === 0 && (
                 <div className="py-8 text-center text-white/40 text-xs">
-                  <p>Ketik judul lagu untuk mencari musik lengkap.</p>
-                  <p className="text-[10px] text-white/30 mt-1 font-mono">Semua lagu dimulai dari detik 00:00 intro hingga akhir.</p>
+                  <p>Ketik judul lagu apa saja untuk mencari langsung di Spotify.</p>
+                  <p className="text-[10px] text-white/30 mt-1 font-mono">Lagu diputar penuh dari detik 00:00 (intro) hingga selesai.</p>
                 </div>
               )}
             </>
@@ -376,16 +415,16 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
 
           {activeTab === 'presets' && (
             <div className="space-y-2 text-left">
-              <p className="text-[11px] text-white/40 font-mono mb-2">Pilihan Lagu Utama (Full Length):</p>
+              <p className="text-[11px] text-white/40 font-mono mb-2">Tema Pilihan (Full Length):</p>
               {EVALUATED_THEME_TRACKS.map((track) => {
                 const isCurrent = currentTrack?.id === track.id;
                 return (
                   <div
                     key={track.id}
-                    onClick={() => handleSelectPreset(track)}
+                    onClick={() => handleSelectTrack(track)}
                     className={`group flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
                       isCurrent
-                        ? 'bg-[#fcd34d]/10 border-[#fcd34d]/50 ring-1 ring-[#fcd34d]/30'
+                        ? 'bg-[#1DB954]/15 border-[#1DB954]/50 ring-1 ring-[#1DB954]/30'
                         : 'bg-white/[0.02] hover:bg-white/[0.07] border-white/10 hover:border-white/20'
                     }`}
                   >
@@ -398,16 +437,16 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
                       {isCurrent && isPlaying && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                           <span className="flex items-end gap-[2px] h-3">
-                            <span className="w-0.5 bg-[#fcd34d] rounded-full animate-[soundwave_0.7s_infinite]" />
-                            <span className="w-0.5 bg-[#fcd34d] rounded-full animate-[soundwave_0.5s_0.2s_infinite]" />
-                            <span className="w-0.5 bg-[#fcd34d] rounded-full animate-[soundwave_0.8s_0.4s_infinite]" />
+                            <span className="w-0.5 bg-[#1DB954] rounded-full animate-[soundwave_0.7s_infinite]" />
+                            <span className="w-0.5 bg-[#1DB954] rounded-full animate-[soundwave_0.5s_0.2s_infinite]" />
+                            <span className="w-0.5 bg-[#1DB954] rounded-full animate-[soundwave_0.8s_0.4s_infinite]" />
                           </span>
                         </div>
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h4 className={`text-xs font-medium truncate ${isCurrent ? 'text-[#fcd34d]' : 'text-white group-hover:text-[#fcd34d]'}`}>
+                      <h4 className={`text-xs font-medium truncate ${isCurrent ? 'text-[#1DB954]' : 'text-white group-hover:text-[#1DB954]'}`}>
                         {track.title}
                       </h4>
                       <p className="text-[10px] text-white/50 truncate font-mono">
@@ -416,7 +455,7 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
                     </div>
 
                     <div className="shrink-0">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 group-hover:bg-[#fcd34d] text-white group-hover:text-black transition-colors">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 group-hover:bg-[#1DB954] text-white group-hover:text-black transition-colors">
                         {isCurrent ? 'Aktif' : 'Putar'}
                       </span>
                     </div>
@@ -429,32 +468,32 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
           {activeTab === 'custom' && (
             <form onSubmit={handleCustomSubmit} className="space-y-3 text-left">
               <div className="p-3 bg-white/[0.03] border border-white/10 rounded-xl">
-                <p className="text-xs text-white/80 font-medium">Putar Langsung dari Link Audio</p>
+                <p className="text-xs text-white/80 font-medium">Tempel Link Spotify atau Audio MP3</p>
                 <p className="text-[11px] text-white/45 mt-0.5 leading-relaxed">
-                  Masukkan link langsung file audio (MP3, M4A, AAC) dari internet. Audio akan diputar penuh dari awal.
+                  Masukkan tautan lagu Spotify (open.spotify.com/track/...) atau link langsung file MP3. Lagu diputar penuh dari awal.
                 </p>
               </div>
 
               <div>
-                <label className="block text-[11px] text-white/60 mb-1 font-mono">URL File Audio (MP3/M4A):</label>
+                <label className="block text-[11px] text-white/60 mb-1 font-mono">Link Spotify atau Audio:</label>
                 <input
-                  type="url"
+                  type="text"
                   required
-                  value={customUrl}
-                  onChange={(e) => setCustomUrl(e.target.value)}
-                  placeholder="https://example.com/audio/song.mp3"
-                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#fcd34d] rounded-xl text-white text-xs focus:outline-none transition-all font-mono"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  placeholder="https://open.spotify.com/track/... atau file MP3"
+                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#1DB954] rounded-xl text-white text-xs focus:outline-none transition-all font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] text-white/60 mb-1 font-mono">Judul Lagu:</label>
+                <label className="block text-[11px] text-white/60 mb-1 font-mono">Judul Lagu (Opsional):</label>
                 <input
                   type="text"
                   value={customTitle}
                   onChange={(e) => setCustomTitle(e.target.value)}
-                  placeholder="Judul lagu pilihan Anda"
-                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#fcd34d] rounded-xl text-white text-xs focus:outline-none transition-all"
+                  placeholder="Judul lagu"
+                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#1DB954] rounded-xl text-white text-xs focus:outline-none transition-all"
                 />
               </div>
 
@@ -464,16 +503,17 @@ export const MusicSearchModal: React.FC<MusicSearchModalProps> = ({
                   type="text"
                   value={customArtist}
                   onChange={(e) => setCustomArtist(e.target.value)}
-                  placeholder="Nama artis atau kreator"
-                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#fcd34d] rounded-xl text-white text-xs focus:outline-none transition-all"
+                  placeholder="Nama artis"
+                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#1DB954] rounded-xl text-white text-xs focus:outline-none transition-all"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2 bg-[#fcd34d] hover:bg-[#fbbf24] text-black font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                disabled={customLoading}
+                className="w-full py-2 bg-[#1DB954] hover:bg-[#1ed760] disabled:opacity-50 text-black font-semibold text-xs rounded-xl transition-colors cursor-pointer"
               >
-                Simpan & Putar
+                {customLoading ? 'Memproses...' : 'Simpan & Putar'}
               </button>
             </form>
           )}

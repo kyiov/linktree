@@ -36,8 +36,10 @@ export const EVALUATED_THEME_TRACKS: Track[] = [
     artist: 'Øneheart & reidenshi',
     duration: 125,
     audioUrl: '/audio/snowfall.mp3',
-    thumbnail: 'https://i.ytimg.com/vi/U1m46getoEw/hq720.jpg',
+    youtubeId: 'LlN8MPS7KQs',
+    thumbnail: 'https://i.ytimg.com/vi/LlN8MPS7KQs/hqdefault.jpg',
     description: 'Lagu tema utama snowfall • Atmospheric ambient',
+    source: 'preset'
   },
   {
     id: 'theme-sunset-ae86',
@@ -47,6 +49,7 @@ export const EVALUATED_THEME_TRACKS: Track[] = [
     audioUrl: '/audio/initial-d-lofi.mp3',
     thumbnail: '/avatar.jpg',
     description: 'Nuansa santai berkendara saat senja bersama AE86',
+    source: 'preset'
   },
   {
     id: 'theme-deja-vu',
@@ -54,7 +57,9 @@ export const EVALUATED_THEME_TRACKS: Track[] = [
     artist: 'Dave Rodgers • Initial D Original',
     duration: 263,
     audioUrl: '/audio/initial-d-eurobeat.mp3',
+    youtubeId: 'dvJ4zK3lPqI',
     thumbnail: '/avatar.jpg',
     description: 'Tema legendaris Initial D Eurobeat',
+    source: 'preset'
   }
 ];
